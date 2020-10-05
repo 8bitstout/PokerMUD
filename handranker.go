@@ -24,8 +24,13 @@ func (h *HandRanker) Straight(playerHand Hand) (int, bool) {
 	return highestValue, count >= 4
 }
 
+func (h *HandRanker) Flush(playerHand Hand) (int, bool) {
+	cards := mergeCards(h.Board.Cards, playerHand.Cards)
+	c1, c2 := playerHand.GetEachCard()
+}
+
 func (h *HandRanker) FourOfAKind(playerHand Hand) (int, bool) {
-	c1, c2 := playerHand.Cards[0], playerHand.Cards[1]
+	c1, c2 := playerHand.GetEachCard()
 	handIsPair := c1.Value == c2.Value
 
 	if handIsPair && len(h.Board.Values[c1.Value]) == 2 {
@@ -44,7 +49,7 @@ func (h *HandRanker) FourOfAKind(playerHand Hand) (int, bool) {
 }
 
 func (h *HandRanker) ThreeOfAKind(playerHand Hand) (int, bool) {
-	c1, c2 := playerHand.Cards[0], playerHand.Cards[1]
+	c1, c2 := playerHand.GetEachCard()
 	handIsPair := c1.Value == c2.Value
 
 	if handIsPair && len(h.Board.Values[c1.Value]) == 1 {
