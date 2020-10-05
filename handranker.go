@@ -25,7 +25,41 @@ func (h *HandRanker) Straight(playerHand Hand) (int, bool) {
 }
 
 func (h *HandRanker) FourOfAKind(playerHand Hand) (int, bool) {
-	cards := mergeCards()
+	c1, c2 := playerHand.Cards[0], playerHand.Cards[1]
+	handIsPair := c1.Value == c2.Value
+
+	if handIsPair && len(h.Board.Values[c1.Value]) == 2 {
+		return c1.Value, true
+	}
+
+	if len(h.Board.Values[c1.Value]) == 3 {
+		return c1.Value, true
+	}
+
+	if len(h.Board.Values[c2.Value]) == 3 {
+		return c2.Value, true
+	}
+
+	return -1, false
+}
+
+func (h *HandRanker) ThreeOfAKind(playerHand Hand) (int, bool) {
+	c1, c2 := playerHand.Cards[0], playerHand.Cards[1]
+	handIsPair := c1.Value == c2.Value
+
+	if handIsPair && len(h.Board.Values[c1.Value]) == 1 {
+		return c1.Value, true
+	}
+
+	if len(h.Board.Values[c1.Value]) == 2 {
+		return c1.Value, true
+	}
+
+	if len(h.Board.Values[c2.Value]) == 2 {
+		return c2.Value, true
+	}
+
+	return -1, false
 }
 
 func mergeCards(a, b []Card) []Card {
