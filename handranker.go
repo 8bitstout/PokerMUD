@@ -6,9 +6,8 @@ type HandRanker struct {
 	Board *Board
 }
 
-func (h *HandRanker) IsStraight(playerHand Hand) (bool, int) {
-	cards := h.Board.Cards
-	cards = append(cards, playerHand.Cards...)
+func (h *HandRanker) Straight(playerHand Hand) (int, bool) {
+	cards := mergeCards(h.Board.Cards, playerHand.Cards)
 
 	sort.Slice(cards, func(i, j int) bool {
 		return cards[i].Value < cards[j].Value
@@ -25,5 +24,11 @@ func (h *HandRanker) IsStraight(playerHand Hand) (bool, int) {
 		}
 	}
 
-	return count >= 4, highestValue
+	return highestValue, count >= 4
+}
+
+func mergeCards(a, b []Card) []Card {
+	cards := a
+	cards = append(a, b...)
+	return cards
 }
