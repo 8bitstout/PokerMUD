@@ -21,7 +21,7 @@ type Hand struct {
 	Value int
 }
 
-func (h *Hand) GetCards() (Card, Card) {
+func (h *Hand) GetEachCard() (Card, Card) {
 	return h.Cards[0], h.Cards[1]
 }
 
