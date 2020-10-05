@@ -25,8 +25,34 @@ func (h *HandRanker) Straight(playerHand Hand) (int, bool) {
 }
 
 func (h *HandRanker) Flush(playerHand Hand) (int, bool) {
-	cards := mergeCards(h.Board.Cards, playerHand.Cards)
+	var cardToUse Card
 	c1, c2 := playerHand.GetEachCard()
+	handIsDoubleSuited := c1.Suite == c2.Suite
+
+	if handIsDoubleSuited || h.Board.GetSuiteCount(c1.Suite) >= 3 {
+		cardToUse = c1
+	}
+
+	if h.Board.GetSuiteCount(c2.Suite) >= 3 {
+		cardToUse = c2
+	}
+
+	suiteValues := h.Board.Suites[cardToUse.Suite]
+	suiteValues = append(suiteValues, cardToUse.Value)
+
+	if len(suiteValues) < 5 {
+		return -1, false
+	}
+
+	maxValue := -1
+
+	for _, value := range suiteValues {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+
+	return maxValue, true
 }
 
 func (h *HandRanker) FourOfAKind(playerHand Hand) (int, bool) {
