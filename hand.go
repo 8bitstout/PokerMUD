@@ -21,6 +21,10 @@ type Hand struct {
 	Value int
 }
 
+func (h *Hand) GetCards() (Card, Card) {
+	return h.Cards[0], h.Cards[1]
+}
+
 func (h *Hand) GetHighCard() int {
 	return MaxInt(h.Cards[0].Value, h.Cards[1].Value)
 }
