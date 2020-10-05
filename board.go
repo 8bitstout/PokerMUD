@@ -24,35 +24,6 @@ func (b *Board) AddValue(c Card) {
 	b.Values[c.Value] = append(b.Values[c.Value], c.Value)
 }
 
-func (b *Board) CalculateRank() {
-	if b.HasFourOfAKind() {
-		b.Rank = FOUR_OF_A_KIND
-	} else if b.HasFlush() {
-		b.Rank = FLUSH
-		return
-	} else if b.HasThreeOfAKind() {
-		b.Rank = THREE_OF_A_KIND
-	} else if b.HasTwoPair() {
-		b.Rank = TWO_PAIR
-	} else if b.HasPair() {
-		b.Rank = ONE_PAIR
-	} else {
-		b.Rank = HIGH_CARD
-	}
-
-}
-
-func (b *Board) HasFlush() bool {
-	if b.GetSuiteCount(HEART) == 5 ||
-		b.GetSuiteCount(DIAMOND) == 5 ||
-		b.GetSuiteCount(CLUB) == 5 ||
-		b.GetSuiteCount(SPADE) == 5 {
-		return true
-	}
-
-	return false
-}
-
 func (b *Board) HasNumberOfValues(n int) bool {
 	for _, v := range b.Values {
 		if len(v) == n {
@@ -62,32 +33,13 @@ func (b *Board) HasNumberOfValues(n int) bool {
 	return false
 }
 
-func (b *Board) HasFourOfAKind() bool {
-	return b.HasNumberOfValues(4)
-}
-
-func (b *Board) HasThreeOfAKind() bool {
-	return b.HasNumberOfValues(3)
-}
-
-func (b *Board) HasPair() bool {
-	return b.HasNumberOfValues(2)
-}
-
-func (b *Board) HasTwoPair() bool {
-	pairCount := 0
-	for _, v := range b.Values {
-		if len(v) == 2 {
-			pairCount++
-		}
-	}
-	return pairCount >= 2
-}
-
 func (b *Board) DisplayBoard() {
 	fmt.Println("---Board---")
-	c1, c2, c3 := b.Cards[0], b.Cards[1], b.Cards[2]
-	fmt.Println(c1.Name, c2.Name, c3.Name)
+	cards := ""
+	for _, card := range b.Cards {
+		cards += fmt.Sprint(card.Name, " ")
+	}
+	fmt.Println(cards)
 }
 
 func (b *Board) GetSuiteCount(s int) int {
