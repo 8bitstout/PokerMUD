@@ -37,7 +37,7 @@ func (b *Board) DisplayBoard() {
 	fmt.Println("---Board---")
 	cards := ""
 	for _, card := range b.Cards {
-		cards += fmt.Sprint(card.Name, " ")
+		cards += fmt.Sprint(card.Namedd, " ")
 	}
 	fmt.Println(cards)
 }
