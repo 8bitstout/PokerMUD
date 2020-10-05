@@ -8,10 +8,7 @@ type HandRanker struct {
 
 func (h *HandRanker) Straight(playerHand Hand) (int, bool) {
 	cards := mergeCards(h.Board.Cards, playerHand.Cards)
-
-	sort.Slice(cards, func(i, j int) bool {
-		return cards[i].Value < cards[j].Value
-	})
+	sortCardsByValue(cards)
 
 	count := 0
 	highestValue := 0
@@ -27,8 +24,18 @@ func (h *HandRanker) Straight(playerHand Hand) (int, bool) {
 	return highestValue, count >= 4
 }
 
+func (h *HandRanker) FourOfAKind(playerHand Hand) (int, bool) {
+	cards := mergeCards()
+}
+
 func mergeCards(a, b []Card) []Card {
 	cards := a
 	cards = append(a, b...)
 	return cards
+}
+
+func sortCardsByValue(cards []Card) {
+	sort.Slice(cards, func(i, j int) bool {
+		return cards[i].Value < cards[j].Value
+	})
 }
