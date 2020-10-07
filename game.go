@@ -2,12 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
-)
-
-const (
-	POSITION_SMALL_BLIND = 0
-	POSITION_BIG_BLIND   = 1
 )
 
 type Game struct {
@@ -16,36 +12,59 @@ type Game struct {
 	Deck       *Deck
 	Board      *Board
 	HandRanker *HandRanker
-	Round      int
+	Round      Round
 }
 
-func (g *Game) Play() {
-	for len(g.Players) >= 2 {
+func (g *Game) Start() {
+	g.SetRound(ROUND_PREFLOP)
+	for g.Round != ROUND_WAITING_FOR_PLAYERS {
 		g.Deck = MakeDeck()
 		g.Board = MakeBoard()
 		g.HandRanker.Board = g.Board
 
 		fmt.Println("---Dealing Cards---")
 		g.DealPlayers()
-		// await betting actions
+		g.ForEachPlayer(g.AwaitPlayerDecision)
+		g.RankPlayerHands()
+
 		fmt.Println("---Dealing Flop---")
 		g.DealFlop()
 		g.Board.DisplayBoard()
-		g.AwaitPlayerDecision()
+		g.ForEachPlayer(g.AwaitPlayerDecision)
 		g.RankPlayerHands()
+
 		fmt.Println("---Dealing Turn---")
 		g.DealTurn()
 		g.Board.DisplayBoard()
 		g.RankPlayerHands()
+		g.ForEachPlayer(g.AwaitPlayerDecision)
+
 		fmt.Println("---Dealing River---")
 		g.DealRiver()
 		g.Board.DisplayBoard()
 		g.RankPlayerHands()
+		g.ForEachPlayer(g.AwaitPlayerDecision)
 		break
 	}
 }
 
-func (g *Game) AwaitPlayerDecision() {
+func (g *Game) SetRound(r Round) {
+	g.Round = r
+}
+
+func (g *Game) ForEachPlayer(f func(p *Player)) {
+	for _, player := range g.Players {
+		f(player)
+	}
+}
+
+func (g *Game) AwaitPlayerDecision(player *Player) {
+	if !player.IsActive {
+		log.Printf(player.Name, "is inactive")
+		return
+	}
+	log.Println(player.Name, "is making a decision")
+	playerMadeDecision := false
 	startTime := time.Now()
 	stopTime := startTime.Add(time.Second * 10)
 	fmt.Println(startTime.Unix())
@@ -53,6 +72,11 @@ func (g *Game) AwaitPlayerDecision() {
 
 	for time.Now().Unix() != stopTime.Unix() {
 		continue
+	}
+
+	if !playerMadeDecision {
+		log.Printf(player.Name, "failed to make a decision in time")
+		player.IsActive = false
 	}
 }
 
@@ -79,7 +103,7 @@ func MakeGame(players []*Player) *Game {
 		Deck:    d,
 		Board:   b,
 		Players: players,
-		Round:   0,
+		Round:   ROUND_WAITING_FOR_PLAYERS,
 	}
 	h := &HandRanker{
 		Board: g.Board,
