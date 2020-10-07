@@ -1,4 +1,4 @@
-package main
+package pokermud
 
 type Position int8
 

@@ -1,4 +1,4 @@
-package main
+package pokermud
 
 const (
 	ACTION_BET = iota

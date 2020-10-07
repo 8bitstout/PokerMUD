@@ -1,4 +1,4 @@
-package main
+package pokermud
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 )
 
 type Game struct {
-	Table      *Table
 	Players    []*Player
 	Deck       *Deck
 	Board      *Board
@@ -154,4 +153,33 @@ func (g *Game) ListPlayers() {
 	for _, p := range g.Players {
 		fmt.Println(p.Name)
 	}
+}
+
+func GetRankName(rank int) string {
+	ranks := map[int]string{
+		HIGH_CARD:       "High Card",
+		ONE_PAIR:        "Pair",
+		TWO_PAIR:        "Two Pair",
+		THREE_OF_A_KIND: "Three of a Kind",
+		STRAIGHT:        "Straight",
+		FLUSH:           "Flush",
+		FULL_HOUSE:      "Full House",
+		FOUR_OF_A_KIND:  "Four of a Kind",
+		STRAIGHT_FLUSH:  "Straight Flush",
+	}
+
+	return ranks[rank]
+}
+
+func MaxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+func MinInt(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
