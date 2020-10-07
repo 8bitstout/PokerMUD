@@ -6,16 +6,22 @@ import (
 	"time"
 )
 
+type Suite int8
+
 const (
-	HEART = iota
-	DIAMOND
-	SPADE
-	CLUB
+	HEART   Suite = iota
+	DIAMOND Suite = iota
+	SPADE   Suite = iota
+	CLUB    Suite = iota
 )
+
+func (s Suite) String() string {
+	return [...]string{"h", "d", "s", "c"}[s]
+}
 
 type Card struct {
 	Value int
-	Suite int
+	Suite Suite
 	Name  string
 }
 
@@ -51,7 +57,7 @@ func (d *Deck) Shuffle() {
 }
 
 func MakeDeck() *Deck {
-	suites := [4]int{HEART, DIAMOND, CLUB, SPADE}
+	suites := [4]Suite{HEART, DIAMOND, CLUB, SPADE}
 	faceCards := map[int]string{
 		11: "J",
 		12: "Q",
@@ -68,10 +74,10 @@ func MakeDeck() *Deck {
 				Value: j,
 				Suite: suites[i],
 			}
-			c.Name = fmt.Sprint(j, c.SuiteToString())
+			c.Name = fmt.Sprint(j, c.Suite.String())
 
 			if _, ok := faceCards[j]; ok {
-				c.Name = fmt.Sprint(faceCards[j], c.SuiteToString())
+				c.Name = fmt.Sprint(faceCards[j], c.Suite.String())
 			}
 
 			d.Cards = append(d.Cards, *c)

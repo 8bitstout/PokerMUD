@@ -42,7 +42,7 @@ func (b *Board) DisplayBoard() {
 	fmt.Println(cards)
 }
 
-func (b *Board) GetSuiteCount(s int) int {
+func (b *Board) GetSuiteCount(s Suite) int {
 	return len(b.Suites[s])
 }
 
