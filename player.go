@@ -1,10 +1,18 @@
 package main
 
+const (
+	ACTION_BET = iota
+	ACTION_CHECK
+	ACTION_FOLD
+)
+
 type Player struct {
-	Name  string
-	Hand  *Hand
-	Value int
-	Chips int
+	Name     string
+	ID       int
+	Hand     *Hand
+	Value    int
+	Chips    int
+	IsActive bool
 }
 
 func (p *Player) AddCard(c Card) {
@@ -17,8 +25,9 @@ func (p *Player) GiveBigBlind() int {
 
 func MakePlayer(name string) *Player {
 	return &Player{
-		Name:  name,
-		Value: 200,
-		Hand:  MakeHand(),
+		Name:     name,
+		Value:    200,
+		Hand:     MakeHand(),
+		IsActive: true,
 	}
 }
