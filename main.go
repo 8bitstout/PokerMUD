@@ -1,12 +1,5 @@
 package main
 
-const (
-	PREFLOP = iota
-	FLOP
-	TURN
-	RIVER
-)
-
 type Table struct {
 	MaxSeats int
 	Players  []Player
@@ -23,7 +16,7 @@ func main() {
 		players = append(players, p)
 	}
 	g := MakeGame(players)
-	g.Play()
+	g.Start()
 
 }
 
