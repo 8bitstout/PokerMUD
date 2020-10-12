@@ -69,7 +69,7 @@ func (h *Hand) GetValue() int {
 	return value
 }
 
-func (h *Hand) ToString() string {
+func (h *Hand) String() string {
 	return fmt.Sprint(h.Cards[0].Name, h.Cards[1].Name)
 }
 
