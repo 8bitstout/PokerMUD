@@ -3,6 +3,7 @@ package pokermud
 import (
 	"fmt"
 	"log"
+	"net"
 	"time"
 )
 
@@ -12,6 +13,14 @@ type Game struct {
 	Board      *Board
 	HandRanker *HandRanker
 	Round      Round
+	Connection net.Conn
+}
+
+type RoundManager interface {
+}
+
+type BettingRound struct {
+	Stage Round
 }
 
 func (g *Game) Start() {
@@ -90,7 +99,7 @@ func (g *Game) GetPlayerInSmallBlind() *Player {
 func (g *Game) RankPlayerHands() {
 	for _, player := range g.Players {
 		rank, _ := g.HandRanker.Rank(*player.Hand)
-		fmt.Println(player.Name, "has a", GetRankName(rank), player.Hand.ToString())
+		fmt.Println(player.Name, "has a", GetRankName(rank), player.Hand.String())
 	}
 }
 
@@ -116,7 +125,9 @@ func (g *Game) DealPlayers() {
 	g.Deck.Shuffle()
 	for i := 0; i < 2; i++ {
 		for _, player := range g.Players {
-			player.AddCard(g.Deck.RemoveTopCard())
+			c := g.Deck.RemoveTopCard()
+			player.AddCard(c)
+			fmt.Println("Dealing a", c.Name, "to player:", player.Name)
 		}
 	}
 }
