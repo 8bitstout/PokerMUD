@@ -1,0 +1,13 @@
+syntax = "proto3";
+package pokermud;
+
+message Action {
+  string PlayerName = 1;
+  int32 BetAmount = 2;
+
+  enum ActionType {
+    FOLD = 0;
+    CHECK = 1;
+    BET = 2;
+  }
+}
