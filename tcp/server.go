@@ -7,23 +7,30 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
+	"time"
 )
 
 const (
 	COMMAND_STOP                 = "stop"
 	COMMAND_PLAYERS              = "players"
-	DEFAULT_BUFFER_SIZE          = 8000
+	DEFAULT_BUFFER_SIZE          = 4096
 	MESSAGE_ACTION       Message = 0
 	MESSAGE_AUTHENTICATE Message = 1
 )
 
-type Message int8
+type Message int
 
 func (m Message) MakeMessage() proto.Message {
 	return [...]proto.Message{
 		&pokermud.Action{},
 		&pokermud.Action{},
 	}[m]
+}
+
+type CMessage struct {
+	receivers []net.Conn
+	message   []byte
 }
 
 type Server struct {
@@ -34,10 +41,12 @@ type Server struct {
 	players      map[string]*pokermud.Player
 	playersReady bool
 	game         *pokermud.Game
+	messages     chan CMessage
 }
 
 func ParseMessage(messageBuffer []byte, length int) ([]byte, Message) {
 	messageType := Message(messageBuffer[0])
+	fmt.Println("MESSAGE TYPE PARSED: ", messageType)
 	protoMessage := messageBuffer[1:length]
 
 	return protoMessage, messageType
@@ -45,7 +54,6 @@ func ParseMessage(messageBuffer []byte, length int) ([]byte, Message) {
 
 func (s *Server) handleConnection(c net.Conn) {
 	s.logInfo.Println("New connection")
-	//player := pokermud.MakePlayer(fmt.Sprint("Player", s.players), c)
 	data := make([]byte, DEFAULT_BUFFER_SIZE)
 	for {
 		length, err := c.Read(data)
@@ -63,12 +71,12 @@ func (s *Server) handleConnection(c net.Conn) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			s.players[a.GetPlayerName()] = pokermud.MakePlayer(a.GetPlayerName(), c)
+			s.players[a.GetPlayerName()] = pokermud.MakePlayer(strings.TrimSuffix(a.GetPlayerName(), "\n"), c)
 
 			c.Write([]byte("Welcome, " + a.GetPlayerName()))
 			s.playersReady = true
+			s.connections++
 		}
-		fmt.Println(msg)
 		s.logInfo.Println("Parsed Message")
 		fmt.Println(msg)
 		return
@@ -87,11 +95,10 @@ func (s *Server) Start() {
 	s.logInfo.Println("Server running at: ", s.port)
 
 	defer l.Close()
-	go s.listen(l)
-	s.StartGame()
-}
 
-func (s *Server) listen(l net.Listener) {
+	go s.StartGame()
+	go s.SendMessages()
+	fmt.Println(s.messages)
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -100,7 +107,6 @@ func (s *Server) listen(l net.Listener) {
 		}
 		s.playersReady = false
 		go s.handleConnection(c)
-		s.connections++
 	}
 }
 
@@ -117,12 +123,77 @@ func (s *Server) StartGame() {
 			s.game = game
 			game.DealPlayers()
 			game.ForEachPlayer(s.SendCardsToPlayer)
+			s.SendPlayerStackUpdate(game)
+			time.Sleep(time.Second * 3)
+			game.ForEachPlayer(s.RequestPlayerAction)
 			game.DealFlop()
 			game.ForEachPlayer(s.SendBoardUpdate)
+			time.Sleep(time.Second * 3)
 			game.ForEachPlayer(s.DisconnectPlayer)
 			break
 		}
 	}
+	s.logInfo.Println("This game has ended")
+}
+
+func (s *Server) SendMessages() {
+	s.logInfo.Println("Listening for channel messages")
+	for {
+		s.logInfo.Println("New message")
+		msg := <-s.messages
+		s.logInfo.Println("Writing channel message to: ", msg.receivers[0].LocalAddr())
+		s.logInfo.Println("Message type: ", msg.message[0])
+		s.logInfo.Println(string(msg.message))
+		r := msg.receivers[0]
+		r.Write(msg.message)
+	}
+	s.logInfo.Println("Closed channel")
+}
+
+func (s *Server) CreateStandardMessage(msg string) []byte {
+	buffer := []byte{10}
+	buffer = append(buffer, []byte(msg)...)
+	return buffer
+}
+
+func (s *Server) BroadcastMessage(g *pokermud.Game, msg string, excludeAddress interface{}) {
+	buffer := []byte{10}
+	buffer = append(buffer, []byte(msg)...)
+	for _, p := range g.Players {
+		if p.Connection.LocalAddr() != excludeAddress {
+			p.Connection.Write(buffer)
+		}
+	}
+}
+
+func (s *Server) RequestPlayerAction(p *pokermud.Player) {
+	s.logInfo.Println("Requesting action from: ", p.Name)
+	s.messages <- CMessage{
+		receivers: []net.Conn{p.Connection},
+		message:   s.CreateStandardMessage("The action is on you..."),
+	}
+	var buffer []byte
+	buffer = append(buffer, byte(MESSAGE_ACTION))
+	buffer = append(buffer, []byte("action")...)
+	fmt.Println("ACTION BUFF SIZE")
+	fmt.Println(len(buffer))
+	s.messages <- CMessage{
+		receivers: []net.Conn{p.Connection},
+		message:   buffer,
+	}
+	fmt.Println(s.messages)
+	for _, player := range s.game.Players {
+		if p.Connection.LocalAddr() != player.Connection.LocalAddr() {
+			s.messages <- CMessage{
+				receivers: []net.Conn{player.Connection},
+				message:   s.CreateStandardMessage(fmt.Sprintf("Waiting for %s to act", p.Name)),
+			}
+		}
+	}
+	response := make([]byte, DEFAULT_BUFFER_SIZE)
+	length, _ := p.Connection.Read(response)
+	msg := string(response[:length])
+	s.BroadcastMessage(s.game, msg, p.Connection.LocalAddr())
 }
 
 func (s *Server) DisconnectPlayer(p *pokermud.Player) {
@@ -131,6 +202,8 @@ func (s *Server) DisconnectPlayer(p *pokermud.Player) {
 	buffer = append(buffer, []byte("EOF")...)
 	p.Connection.Write(buffer)
 	delete(s.players, p.Name)
+	p.Connection.Close()
+	s.connections--
 }
 
 func (s *Server) SendCardsToPlayer(p *pokermud.Player) {
@@ -140,12 +213,24 @@ func (s *Server) SendCardsToPlayer(p *pokermud.Player) {
 	p.Connection.Write(buffer)
 }
 
+func (s *Server) SendPlayerStackUpdate(g *pokermud.Game) {
+	stacks := ""
+	for _, p := range g.Players {
+		s.logInfo.Println(len(p.Name))
+		stacks += fmt.Sprintf("%s: $%v | ", p.Name, p.Value)
+	}
+	s.logInfo.Println("Sending update of player stacks")
+	s.logInfo.Println(stacks)
+	s.BroadcastMessage(g, stacks, nil)
+}
+
 func (s *Server) SendBoardUpdate(p *pokermud.Player) {
 	s.logInfo.Println("Send a board update message to: ", p.Name)
 	board := ""
 	for _, c := range s.game.Board.Cards {
 		board += c.Name + " "
 	}
+	s.logInfo.Println("Board:", board)
 	buffer := []byte{7}
 	buffer = append(buffer, []byte(board)...)
 	p.Connection.Write(buffer)
@@ -157,5 +242,6 @@ func MakeServer(port string) *Server {
 		logInfo:  log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
 		logError: log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime),
 		players:  make(map[string]*pokermud.Player),
+		messages: make(chan CMessage),
 	}
 }
