@@ -37,9 +37,20 @@ func (c *Client) Authenticate() {
 		PlayerName: username,
 	}
 
-	out, _ := proto.Marshal(msg)
-	buffer := []byte{1}
+	out, err := proto.Marshal(msg)
+
+	if err != nil {
+		c.logInfo.Println("Could not unmarshal protobuf")
+		log.Fatal(err)
+	}
+	fmt.Println("PROTOSIZE: ", len(out))
+	out = append(out, byte(1))
+	buffer := []byte{byte(len(out))}
 	buffer = append(buffer, out[:]...)
+	fmt.Println("BUFFER SIZE", len(out))
+	fmt.Println(string(buffer))
+	fmt.Println("CMD: ", buffer[0])
+	fmt.Println(buffer)
 	c.Connection.Write(buffer)
 	reader.Reset(c.Connection)
 	response, _ := reader.ReadString('\n')
@@ -66,7 +77,11 @@ func (c *Client) Connect() {
 			break
 		}
 		if length > 0 {
-			msg, msgType := ParseMessage(buffer, length)
+			msg, msgType := ParseMessage(buffer)
+
+			c.logInfo.Println(msg)
+			c.logInfo.Println("MessageType: ", msgType)
+			c.logInfo.Println("SIZE: ", length)
 			if msgType == 5 {
 				fmt.Println("Dealing cards...")
 				time.Sleep(time.Second * 3)

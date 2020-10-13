@@ -44,36 +44,42 @@ type Server struct {
 	messages     chan CMessage
 }
 
-func ParseMessage(messageBuffer []byte, length int) ([]byte, Message) {
-	messageType := Message(messageBuffer[0])
+func ParseMessage(messageBuffer []byte) ([]byte, Message) {
+	length := int(messageBuffer[0]) + 1
+	message := messageBuffer[1:length]
+	messageType := Message(messageBuffer[length-1])
 	fmt.Println("MESSAGE TYPE PARSED: ", messageType)
-	protoMessage := messageBuffer[1:length]
+	fmt.Println("SENT SIZE: ", length)
+	fmt.Println("MESSAGE SIZE", len(messageBuffer))
+	fmt.Println(string(messageBuffer))
 
-	return protoMessage, messageType
+	return message[:len(message)-1], messageType
 }
 
 func (s *Server) handleConnection(c net.Conn) {
 	s.logInfo.Println("New connection")
 	data := make([]byte, DEFAULT_BUFFER_SIZE)
 	for {
-		length, err := c.Read(data)
+		_, err := c.Read(data)
 
 		if err != nil {
 			s.logError.Println(err)
 			return
 		}
 
-		msg, mtype := ParseMessage(data, length)
+		msg, mtype := ParseMessage(data)
 
 		if mtype == MESSAGE_AUTHENTICATE {
 			a := &pokermud.Action{}
 			err := proto.Unmarshal(msg, a)
 			if err != nil {
+				s.logError.Println("failed to unmarshal protobuf")
 				log.Fatal(err)
 			}
 			s.players[a.GetPlayerName()] = pokermud.MakePlayer(strings.TrimSuffix(a.GetPlayerName(), "\n"), c)
 
 			c.Write([]byte("Welcome, " + a.GetPlayerName()))
+			c.Close()
 			s.playersReady = true
 			s.connections++
 		}
@@ -146,19 +152,23 @@ func (s *Server) SendMessages() {
 		s.logInfo.Println(string(msg.message))
 		r := msg.receivers[0]
 		r.Write(msg.message)
+		r.Close()
 	}
 	s.logInfo.Println("Closed channel")
 }
 
 func (s *Server) CreateStandardMessage(msg string) []byte {
-	buffer := []byte{10}
+	s.logInfo.Println("Creating standard network message")
+	msg += "10"
+	length := byte(len(msg))
+	buffer := []byte{length}
 	buffer = append(buffer, []byte(msg)...)
+	s.logInfo.Println(buffer)
 	return buffer
 }
 
 func (s *Server) BroadcastMessage(g *pokermud.Game, msg string, excludeAddress interface{}) {
-	buffer := []byte{10}
-	buffer = append(buffer, []byte(msg)...)
+	buffer := s.CreateStandardMessage(msg)
 	for _, p := range g.Players {
 		if p.Connection.LocalAddr() != excludeAddress {
 			p.Connection.Write(buffer)
@@ -173,8 +183,9 @@ func (s *Server) RequestPlayerAction(p *pokermud.Player) {
 		message:   s.CreateStandardMessage("The action is on you..."),
 	}
 	var buffer []byte
-	buffer = append(buffer, byte(MESSAGE_ACTION))
-	buffer = append(buffer, []byte("action")...)
+	msg := "client action0"
+	buffer = append(buffer, byte(len(msg)))
+	buffer = append(buffer, []byte(msg)...)
 	fmt.Println("ACTION BUFF SIZE")
 	fmt.Println(len(buffer))
 	s.messages <- CMessage{
@@ -192,7 +203,7 @@ func (s *Server) RequestPlayerAction(p *pokermud.Player) {
 	}
 	response := make([]byte, DEFAULT_BUFFER_SIZE)
 	length, _ := p.Connection.Read(response)
-	msg := string(response[:length])
+	msg = string(response[:length])
 	s.BroadcastMessage(s.game, msg, p.Connection.LocalAddr())
 }
 
