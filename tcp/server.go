@@ -79,13 +79,12 @@ func (s *Server) handleConnection(c net.Conn) {
 			s.players[a.GetPlayerName()] = pokermud.MakePlayer(strings.TrimSuffix(a.GetPlayerName(), "\n"), c)
 
 			c.Write([]byte("Welcome, " + a.GetPlayerName()))
-			c.Close()
 			s.playersReady = true
 			s.connections++
+			return
 		}
 		s.logInfo.Println("Parsed Message")
 		fmt.Println(msg)
-		return
 	}
 	s.logInfo.Println("Exiting TCP tcp")
 	c.Write([]byte("EOF"))
@@ -152,7 +151,6 @@ func (s *Server) SendMessages() {
 		s.logInfo.Println(string(msg.message))
 		r := msg.receivers[0]
 		r.Write(msg.message)
-		r.Close()
 	}
 	s.logInfo.Println("Closed channel")
 }

@@ -70,11 +70,7 @@ func (c *Client) Connect() {
 		buffer := make([]byte, DEFAULT_BUFFER_SIZE)
 		length, err := c.Connection.Read(buffer)
 		if err != nil {
-			log.Fatal(err)
-		}
-		if length == 0 {
-			c.logInfo.Println("Breaking loop")
-			break
+			continue
 		}
 		if length > 0 {
 			msg, msgType := ParseMessage(buffer)
