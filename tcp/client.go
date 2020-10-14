@@ -43,14 +43,9 @@ func (c *Client) Authenticate() {
 		c.logInfo.Println("Could not unmarshal protobuf")
 		log.Fatal(err)
 	}
-	fmt.Println("PROTOSIZE: ", len(out))
 	out = append(out, byte(1))
 	buffer := []byte{byte(len(out))}
 	buffer = append(buffer, out[:]...)
-	fmt.Println("BUFFER SIZE", len(out))
-	fmt.Println(string(buffer))
-	fmt.Println("CMD: ", buffer[0])
-	fmt.Println(buffer)
 	c.Connection.Write(buffer)
 	reader.Reset(c.Connection)
 	response, _ := reader.ReadString('\n')
