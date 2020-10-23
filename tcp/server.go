@@ -3,6 +3,7 @@ package tcp
 import (
 	"fmt"
 	"github.com/8bitstout/pokermud"
+	tcp "github.com/8bitstout/pokermud/proto"
 	"github.com/golang/protobuf/proto"
 	"log"
 	"net"
@@ -28,11 +29,6 @@ func (m Message) MakeMessage() proto.Message {
 	}[m]
 }
 
-type Messenger interface {
-	BroadcastMessage()
-	SendMessage()
-}
-
 type CMessage struct {
 	receivers []net.Conn
 	message   []byte
@@ -47,29 +43,7 @@ type Server struct {
 	playersReady   bool
 	game           *pokermud.Game
 	messages       chan CMessage
-	messageManager *MessageManager
-}
-
-type MessageManager struct {
-	players []pokermud.Player
-}
-
-func (m *MessageManager) BroadcastMessage(message []byte) {
-	for _, p := range m.players {
-		go m.SendMessage(message, p)
-	}
-}
-
-func (m *MessageManager) BroadcastMessageFromPlayer(message []byte, sender pokermud.Player) {
-	for _, receiver := range m.players {
-		if sender.Connection.LocalAddr() != receiver.Connection.LocalAddr() {
-			go m.SendMessage(message, receiver)
-		}
-	}
-}
-
-func (m *MessageManager) SendMessage(message []byte, p pokermud.Player) {
-	p.Connection.Write(message)
+	messageManager *tcp.MessageManager
 }
 
 func ParseMessage(messageBuffer []byte) ([]byte, Message) {
@@ -126,7 +100,6 @@ func (s *Server) Start() {
 	defer l.Close()
 
 	go s.StartGame()
-	go s.SendMessages()
 	fmt.Println(s.messages)
 	for {
 		c, err := l.Accept()
@@ -163,20 +136,6 @@ func (s *Server) StartGame() {
 		}
 	}
 	s.logInfo.Println("This game has ended")
-}
-
-func (s *Server) SendMessages() {
-	s.logInfo.Println("Listening for channel messages")
-	for {
-		s.logInfo.Println("New message")
-		msg := <-s.messages
-		s.logInfo.Println("Writing channel message to: ", msg.receivers[0].LocalAddr())
-		s.logInfo.Println("Message type: ", msg.message[0])
-		s.logInfo.Println(string(msg.message))
-		r := msg.receivers[0]
-		r.Write(msg.message)
-	}
-	s.logInfo.Println("Closed channel")
 }
 
 func (s *Server) CreateStandardMessage(msg string) []byte {
@@ -271,10 +230,11 @@ func (s *Server) SendBoardUpdate(p *pokermud.Player) {
 
 func MakeServer(port string) *Server {
 	return &Server{
-		port:     port,
-		logInfo:  log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
-		logError: log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime),
-		players:  make(map[string]*pokermud.Player),
-		messages: make(chan CMessage),
+		port:           port,
+		logInfo:        log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
+		logError:       log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime),
+		players:        make(map[string]*pokermud.Player),
+		messages:       make(chan CMessage),
+		messageManager: &tcp.MessageManager{},
 	}
 }
