@@ -28,6 +28,10 @@ func (m Message) MakeMessage() proto.Message {
 	}[m]
 }
 
+type Broadcaster interface {
+	BroadcastMessage()
+}
+
 type CMessage struct {
 	receivers []net.Conn
 	message   []byte
@@ -48,10 +52,6 @@ func ParseMessage(messageBuffer []byte) ([]byte, Message) {
 	length := int(messageBuffer[0]) + 1
 	message := messageBuffer[1:length]
 	messageType := Message(messageBuffer[length-1])
-	fmt.Println("MESSAGE TYPE PARSED: ", messageType)
-	fmt.Println("SENT SIZE: ", length)
-	fmt.Println("MESSAGE SIZE", len(messageBuffer))
-	fmt.Println(string(messageBuffer))
 
 	return message[:len(message)-1], messageType
 }
