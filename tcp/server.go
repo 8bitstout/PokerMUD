@@ -28,8 +28,9 @@ func (m Message) MakeMessage() proto.Message {
 	}[m]
 }
 
-type Broadcaster interface {
+type Messenger interface {
 	BroadcastMessage()
+	SendMessage()
 }
 
 type CMessage struct {
@@ -38,14 +39,37 @@ type CMessage struct {
 }
 
 type Server struct {
-	port         string
-	logInfo      *log.Logger
-	logError     *log.Logger
-	connections  int
-	players      map[string]*pokermud.Player
-	playersReady bool
-	game         *pokermud.Game
-	messages     chan CMessage
+	port           string
+	logInfo        *log.Logger
+	logError       *log.Logger
+	connections    int
+	players        map[string]*pokermud.Player
+	playersReady   bool
+	game           *pokermud.Game
+	messages       chan CMessage
+	messageManager *MessageManager
+}
+
+type MessageManager struct {
+	players []pokermud.Player
+}
+
+func (m *MessageManager) BroadcastMessage(message []byte) {
+	for _, p := range m.players {
+		go m.SendMessage(message, p)
+	}
+}
+
+func (m *MessageManager) BroadcastMessageFromPlayer(message []byte, sender pokermud.Player) {
+	for _, receiver := range m.players {
+		if sender.Connection.LocalAddr() != receiver.Connection.LocalAddr() {
+			go m.SendMessage(message, receiver)
+		}
+	}
+}
+
+func (m *MessageManager) SendMessage(message []byte, p pokermud.Player) {
+	p.Connection.Write(message)
 }
 
 func ParseMessage(messageBuffer []byte) ([]byte, Message) {
