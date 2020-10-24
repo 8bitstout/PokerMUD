@@ -3,8 +3,6 @@ package tcp
 import (
 	"bufio"
 	"fmt"
-	"github.com/8bitstout/pokermud"
-	"github.com/golang/protobuf/proto"
 	"log"
 	"net"
 	"os"
@@ -12,11 +10,12 @@ import (
 )
 
 type Client struct {
-	port       string
-	logError   *log.Logger
-	logInfo    *log.Logger
-	Username   string
-	Connection net.Conn
+	port           string
+	logError       *log.Logger
+	logInfo        *log.Logger
+	Username       string
+	Connection     net.Conn
+	MessageManager *MessageManager
 }
 
 func (c *Client) IsConnected() bool {
@@ -33,20 +32,10 @@ func (c *Client) Authenticate() {
 	fmt.Print(">> ")
 	reader := bufio.NewReader(os.Stdin)
 	username, _ := reader.ReadString('\n')
-	msg := &pokermud.Action{
-		PlayerName: username,
-	}
-
-	out, err := proto.Marshal(msg)
-
-	if err != nil {
-		c.logInfo.Println("Could not unmarshal protobuf")
-		log.Fatal(err)
-	}
-	out = append(out, byte(1))
-	buffer := []byte{byte(len(out))}
-	buffer = append(buffer, out[:]...)
-	c.Connection.Write(buffer)
+	msg := c.MessageManager.CreateAuthMessage(username)
+	c.logInfo.Println("Auth Message Created: ", msg)
+	c.logInfo.Println(string(msg))
+	c.Connection.Write(msg)
 	reader.Reset(c.Connection)
 	response, _ := reader.ReadString('\n')
 	fmt.Println(response)
@@ -68,65 +57,64 @@ func (c *Client) Connect() {
 			continue
 		}
 		if length > 0 {
-			msg, msgType := ParseMessage(buffer)
+			messageFrame := MakeMessageFrame()
+			completed, msgType, msg := messageFrame.Parse(buffer)
 
-			c.logInfo.Println(msg)
-			c.logInfo.Println("MessageType: ", msgType)
-			c.logInfo.Println("SIZE: ", length)
-			if msgType == 5 {
-				fmt.Println("Dealing cards...")
-				time.Sleep(time.Second * 3)
-				fmt.Println("Your hand:", string(msg))
-			}
-			if msgType == 6 {
-				c.logInfo.Println("Connection terminated by server")
-				c.Connection.Close()
-				c.Connection = nil
-			}
-			if msgType == 7 {
-				fmt.Println("Dealing the flop...")
-				time.Sleep(time.Second * 3)
-				fmt.Println(string(msg))
-			}
-			if msgType == 10 {
-				c.logInfo.Println("Received standard message from server")
-				fmt.Println(string(msg))
-			}
-			if msgType == MESSAGE_ACTION {
-				c.logInfo.Println("Action requested from server")
-				fmt.Println("Enter one of the following commands to send an action\n1. fold\n2. check\n3. bet (amount e.g 10)")
-				reader := bufio.NewReader(os.Stdin)
-				fmt.Print(">> ")
-				response := ""
-				switch cmd, _ := reader.ReadString('\n'); cmd {
-				case "fold\n":
-					response = fmt.Sprint(c.Username, "folded their hand")
-				case "check\n":
-					response = fmt.Sprint(c.Username, "checked their hand")
-				case "bet\n":
-					{
-						fmt.Println("Enter a bet size (e.g. 10)")
-						fmt.Print(">> ")
-						reader.Reset(os.Stdin)
-						i, _ := reader.ReadString('\n')
-						response = fmt.Sprintf("%s bet $%s", c.Username, i)
-					}
-				default:
-					fmt.Println("Command not recognized")
+			if completed {
+				if msgType == 5 {
+					fmt.Println("Dealing cards...")
+					time.Sleep(time.Second * 3)
+					fmt.Println("Your hand:", msg)
 				}
-				os.Stdin.Close()
-				c.Connection.Write([]byte(response))
+				if msgType == 6 {
+					c.logInfo.Println("Connection terminated by server")
+					c.Connection.Close()
+					c.Connection = nil
+				}
+				if msgType == 7 {
+					fmt.Println("Dealing the flop...")
+					time.Sleep(time.Second * 3)
+					fmt.Println(msg)
+				}
+				if msgType == 10 {
+					c.logInfo.Println("Received standard message from server")
+					fmt.Println(msg)
+				}
+				if Message(msgType) == MESSAGE_ACTION {
+					c.logInfo.Println("Action requested from server")
+					fmt.Println("Enter one of the following commands to send an action\n1. fold\n2. check\n3. bet (amount e.g 10)")
+					reader := bufio.NewReader(os.Stdin)
+					fmt.Print(">> ")
+					response := ""
+					switch cmd, _ := reader.ReadString('\n'); cmd {
+					case "fold\n":
+						response = fmt.Sprint(c.Username, "folded their hand")
+					case "check\n":
+						response = fmt.Sprint(c.Username, "checked their hand")
+					case "bet\n":
+						{
+							fmt.Println("Enter a bet size (e.g. 10)")
+							fmt.Print(">> ")
+							reader.Reset(os.Stdin)
+							i, _ := reader.ReadString('\n')
+							response = fmt.Sprintf("%s bet $%s", c.Username, i)
+						}
+					default:
+						fmt.Println("Command not recognized")
+					}
+					os.Stdin.Close()
+					c.Connection.Write([]byte(response))
+				}
 			}
 		}
-
-		buffer = make([]byte, DEFAULT_BUFFER_SIZE)
 	}
 }
 
 func MakeClient(port string) *Client {
 	return &Client{
-		port:     port,
-		logInfo:  log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
-		logError: log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime),
+		port:           port,
+		logInfo:        log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
+		logError:       log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime),
+		MessageManager: MakeMessageManager(),
 	}
 }
