@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/8bitstout/pokermud"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
 )
 
 type Messenger interface {
@@ -15,6 +17,7 @@ type Messenger interface {
 
 type MessageManager struct {
 	players map[net.Addr]*pokermud.Player
+	logInfo *log.Logger
 }
 
 func (m *MessageManager) BroadcastMessage(message []byte) {
@@ -69,12 +72,21 @@ func (m *MessageManager) CreateMessage(msg string, msgType int) []byte {
 	buff = append(buff, byte(':'))
 	buff = append(buff, []byte(msg)...)
 	buff[0] = byte(len(buff))
-	log.Println("Message:", buff)
+	m.logInfo.Println("Message:", buff)
 	return buff
 }
 
 func MakeMessageManager() *MessageManager {
-	return &MessageManager{
+	enableLogging := os.Getenv("ENABLE_LOGGING") == "1"
+
+	m := &MessageManager{
 		players: make(map[net.Addr]*pokermud.Player),
+		logInfo: log.New(os.Stdout, fmt.Sprintf("INFO:MessageManager:\t"), log.Ldate|log.Ltime),
 	}
+
+	if !enableLogging {
+		m.logInfo.SetOutput(ioutil.Discard)
+	}
+
+	return m
 }

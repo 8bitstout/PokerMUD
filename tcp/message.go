@@ -1,7 +1,10 @@
 package tcp
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 )
 
 const (
@@ -16,6 +19,7 @@ type MessageFrame struct {
 	tempMessage   []byte
 	messageLength int
 	messageType   int
+	logInfo       *log.Logger
 }
 
 type MessageHandler interface {
@@ -30,20 +34,20 @@ func (m *MessageFrame) Parse(data []byte) (bool, int, string) {
 
 	for !completed {
 		if m.state == AWAITING_LENGTH {
-			log.Println("Parsing Message Length")
+			m.logInfo.Println("Parsing Message Length")
 			found, consumed, parsedMessage := m.readToToken(data, currentIdx, STD_TOKEN)
 			currentIdx += consumed
 
 			if found {
-				log.Println("Message Length Found: ", parsedMessage, "|", len(parsedMessage))
+				m.logInfo.Println("Message Length Found: ", parsedMessage, "|", len(parsedMessage))
 				m.messageLength = int(parsedMessage[0])
-				log.Println("Length:", m.messageLength)
+				m.logInfo.Println("Length:", m.messageLength)
 				m.state = AWAITING_TYPE
 			}
 		}
 
 		if m.state == AWAITING_TYPE {
-			log.Println("Parsing message type")
+			m.logInfo.Println("Parsing message type")
 			found, consumed, parsedMessage := m.readToToken(data, currentIdx, STD_TOKEN)
 			currentIdx += consumed
 
@@ -54,7 +58,7 @@ func (m *MessageFrame) Parse(data []byte) (bool, int, string) {
 		}
 
 		if m.state == AWAITING_DATA {
-			log.Println("Parsing message data")
+			m.logInfo.Println("Parsing message data")
 			found, consumed, parsedMessage := m.readToLength(data, currentIdx, m.messageLength)
 			currentIdx += consumed
 
@@ -85,13 +89,13 @@ func (m *MessageFrame) readToToken(msg []byte, offset int, token string) (bool, 
 	idx := m.findToken(msg, offset, token)
 
 	if idx == -1 {
-		log.Println("Token was not found")
+		m.logInfo.Println("Token was not found")
 		m.store(msg[offset:])
 		consumed = len(msg) - offset
 	} else {
-		log.Println("Reading token from index: ", idx, "starting at offset:", offset)
+		m.logInfo.Println("Reading token from index: ", idx, "starting at offset:", offset)
 		parsedMessage = append(m.getTempMessage(), msg[offset:idx]...)
-		log.Println("New parsed message:", parsedMessage)
+		m.logInfo.Println("New parsed message:", parsedMessage)
 		completed = true
 		consumed = idx - offset + 1
 	}
@@ -104,16 +108,16 @@ func (m *MessageFrame) readToLength(data []byte, offset int, length int) (bool, 
 	var parsed string
 	var completed bool
 
-	log.Println("ReadToLength: ", length, " | offset:", offset, "->", data[offset])
+	m.logInfo.Println("ReadToLength: ", length, " | offset:", offset, "->", data[offset])
 
 	current := m.getTempMessage()
-	log.Println("Current message: ", current)
+	m.logInfo.Println("Current message: ", current)
 	remaining := len(data) - offset
 	toParse := (length - len(current)) - 1
 
 	if remaining >= toParse {
 		parsed = string(data[offset:toParse])
-		log.Println("Parsed:", parsed, "|", len(parsed))
+		m.logInfo.Println("Parsed:", parsed, "|", len(parsed))
 		consumed = toParse
 		completed = true
 	} else {
@@ -126,11 +130,11 @@ func (m *MessageFrame) readToLength(data []byte, offset int, length int) (bool, 
 }
 
 func (m *MessageFrame) findToken(data []byte, offset int, token string) int {
-	log.Println("Searching for token at offset:", offset)
+	m.logInfo.Println("Searching for token at offset:", offset)
 	idx := -1
 	for i := offset; i < len(data); i++ {
 		if string(data[i]) == token {
-			log.Println("Found token at index:", i)
+			m.logInfo.Println("Found token at index:", i)
 			return i
 		}
 	}
@@ -150,5 +154,15 @@ func (m *MessageFrame) getTempMessage() []byte {
 }
 
 func MakeMessageFrame() *MessageFrame {
-	return &MessageFrame{}
+	enableLogging := os.Getenv("ENABLE_LOGGING") == "1"
+
+	m := &MessageFrame{
+		logInfo: log.New(os.Stdout, fmt.Sprintf("INFO:MessageFrame:\t"), log.Ldate|log.Ltime),
+	}
+
+	if !enableLogging {
+		m.logInfo.SetOutput(ioutil.Discard)
+	}
+
+	return m
 }

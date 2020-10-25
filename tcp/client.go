@@ -3,6 +3,7 @@ package tcp
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -111,10 +112,18 @@ func (c *Client) Connect() {
 }
 
 func MakeClient(port string) *Client {
-	return &Client{
+	enableLogging := os.Getenv("ENABLE_LOGGING") == "1"
+
+	c := &Client{
 		port:           port,
-		logInfo:        log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
-		logError:       log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime),
+		logInfo:        log.New(os.Stdout, "INFO:Client\t", log.Ldate|log.Ltime),
+		logError:       log.New(os.Stdout, "ERROR:Client\t", log.Ldate|log.Ltime),
 		MessageManager: MakeMessageManager(),
 	}
+
+	if !enableLogging {
+		c.logInfo.SetOutput(ioutil.Discard)
+	}
+
+	return c
 }
