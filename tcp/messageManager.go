@@ -60,6 +60,10 @@ func (m *MessageManager) CreateAuthMessage(username string) []byte {
 	return m.CreateMessage(username, 1)
 }
 
+func (m *MessageManager) CreateHandMessage(h *pokermud.Hand) []byte {
+	return m.CreateMessage(h.String(), 2)
+}
+
 func (m *MessageManager) CreateDisconnectMessage() []byte {
 	return m.CreateMessage("Connection terminated by server", 6)
 }

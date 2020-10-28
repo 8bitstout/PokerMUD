@@ -128,8 +128,8 @@ func (s *Server) StartGame() {
 			}
 			game := pokermud.MakeGame(players)
 			s.game = game
-			//game.DealPlayers()
-			//game.ForEachPlayer(s.SendCardsToPlayer)
+			game.DealPlayers()
+			game.ForEachPlayer(s.SendCardsToPlayer)
 			s.BroadcastPlayerStacks(game)
 			time.Sleep(time.Second * 3)
 			//game.ForEachPlayer(s.RequestPlayerAction)
@@ -187,9 +187,8 @@ func (s *Server) DisconnectPlayer(p *pokermud.Player) {
 // containing two cards that cah be parsed to use as a Hand
 func (s *Server) SendCardsToPlayer(p *pokermud.Player) {
 	s.logInfo.Println("Sending card message,", p.Hand.String(), "to:", p.Name)
-	buffer := []byte{5}
-	buffer = append(buffer, []byte(p.Hand.String())...)
-	p.Connection.Write(buffer)
+	msg := s.messageManager.CreateHandMessage(p.Hand)
+	s.messageManager.SendMessage(msg, p)
 }
 
 // BroadcastPlayerStack sends a network message to every connection
