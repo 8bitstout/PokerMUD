@@ -173,6 +173,8 @@ func (s *Server) RequestPlayerAction(p *pokermud.Player) {
 	msg = string(response[:length])
 }
 
+// DisconnectPlayer takes a Player and ends their connection and
+// reduces the number of player connections in the Server property
 func (s *Server) DisconnectPlayer(p *pokermud.Player) {
 	s.logInfo.Println("Disconnecting player:", p.Name)
 	s.messageManager.SendMessage(s.messageManager.CreateDisconnectMessage(), p)
@@ -181,6 +183,8 @@ func (s *Server) DisconnectPlayer(p *pokermud.Player) {
 	s.connections--
 }
 
+// SendCardsToPlayer takes a Player and sends that player a network message
+// containing two cards that cah be parsed to use as a Hand
 func (s *Server) SendCardsToPlayer(p *pokermud.Player) {
 	s.logInfo.Println("Sending card message,", p.Hand.String(), "to:", p.Name)
 	buffer := []byte{5}
@@ -188,6 +192,8 @@ func (s *Server) SendCardsToPlayer(p *pokermud.Player) {
 	p.Connection.Write(buffer)
 }
 
+// BroadcastPlayerStack sends a network message to every connection
+// which contains every player name and their respective chip stack value
 func (s *Server) BroadcastPlayerStacks(g *pokermud.Game) {
 	stacks := ""
 	for _, p := range g.Players {
@@ -200,6 +206,8 @@ func (s *Server) BroadcastPlayerStacks(g *pokermud.Game) {
 	s.messageManager.BroadcastMessage(msg)
 }
 
+// BroadcastCommunityCards sends a network message to every connection
+// which contains the current community cards in play
 func (s *Server) BroadcastCommunityCards() {
 	s.logInfo.Println("Sending a board update to all clients")
 	board := ""
