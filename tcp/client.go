@@ -62,24 +62,30 @@ func (c *Client) Connect() {
 			completed, msgType, msg := messageFrame.Parse(buffer)
 
 			if completed {
-				if msgType == 5 {
-					fmt.Println("Dealing cards...")
-					time.Sleep(time.Second * 3)
-					fmt.Println("Your hand:", msg)
-				}
-				if msgType == 6 {
-					c.logInfo.Println("Connection terminated by server")
-					c.Connection.Close()
-					c.Connection = nil
-				}
-				if msgType == 7 {
-					fmt.Println("Dealing the flop...")
-					time.Sleep(time.Second * 3)
-					fmt.Println(msg)
-				}
-				if msgType == 10 {
-					c.logInfo.Println("Received standard message from server")
-					fmt.Println(msg)
+				switch msgType {
+				case 2:
+					{
+						fmt.Println("Dealing cards...")
+						time.Sleep(time.Second * 3)
+						fmt.Println("Your hand:", msg)
+					}
+				case 6:
+					{
+						c.logInfo.Println("Connection terminated by server")
+						c.Connection.Close()
+						c.Connection = nil
+					}
+				case 7:
+					{
+						fmt.Println("Dealing the flop...")
+						time.Sleep(time.Second * 3)
+						fmt.Println(msg)
+					}
+				case 10:
+					{
+						c.logInfo.Println("Received standard message from server")
+						fmt.Println(msg)
+					}
 				}
 				if Message(msgType) == MESSAGE_ACTION {
 					c.logInfo.Println("Action requested from server")
