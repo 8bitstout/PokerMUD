@@ -3,6 +3,7 @@ package tcp
 import (
 	"bufio"
 	"fmt"
+	"github.com/8bitstout/pokermud"
 	"io/ioutil"
 	"log"
 	"net"
@@ -11,12 +12,13 @@ import (
 )
 
 type Client struct {
-	port           string
-	logError       *log.Logger
-	logInfo        *log.Logger
-	Username       string
-	Connection     net.Conn
-	MessageManager *MessageManager
+	port            string
+	logError        *log.Logger
+	logInfo         *log.Logger
+	Username        string
+	Connection      net.Conn
+	MessageManager  *MessageManager
+	canChooseAction bool
 }
 
 func (c *Client) IsConnected() bool {
@@ -63,54 +65,57 @@ func (c *Client) Connect() {
 
 			if completed {
 				switch msgType {
+				// Cards are dealt to player
 				case 2:
 					{
 						fmt.Println("Dealing cards...")
 						time.Sleep(time.Second * 3)
 						fmt.Println("Your hand:", msg)
 					}
+				// Client connection terminated by server
 				case 6:
 					{
 						c.logInfo.Println("Connection terminated by server")
 						c.Connection.Close()
 						c.Connection = nil
 					}
+				// Flop is dealt
 				case 7:
 					{
 						fmt.Println("Dealing the flop...")
 						time.Sleep(time.Second * 3)
 						fmt.Println(msg)
 					}
+				// Any plain text sent from the server
 				case 10:
 					{
 						c.logInfo.Println("Received standard message from server")
 						fmt.Println(msg)
 					}
-				}
-				if Message(msgType) == MESSAGE_ACTION {
-					c.logInfo.Println("Action requested from server")
-					fmt.Println("Enter one of the following commands to send an action\n1. fold\n2. check\n3. bet (amount e.g 10)")
-					reader := bufio.NewReader(os.Stdin)
-					fmt.Print(">> ")
-					response := ""
-					switch cmd, _ := reader.ReadString('\n'); cmd {
-					case "fold\n":
-						response = fmt.Sprint(c.Username, "folded their hand")
-					case "check\n":
-						response = fmt.Sprint(c.Username, "checked their hand")
-					case "bet\n":
-						{
-							fmt.Println("Enter a bet size (e.g. 10)")
+				// Request player action
+				case 11:
+					{
+						c.logInfo.Println("Server requested action from client")
+						fmt.Println("Enter one of the following commands to send an action\n1. fold\n2. check\n3. bet (amount e.g 10)")
+						c.canChooseAction = true
+
+						for c.canChooseAction {
+							reader := bufio.NewReader(os.Stdin)
 							fmt.Print(">> ")
-							reader.Reset(os.Stdin)
 							i, _ := reader.ReadString('\n')
-							response = fmt.Sprintf("%s bet $%s", c.Username, i)
+							msg := c.MessageManager.CreateMessage(i, 11)
+							c.MessageManager.SendMessage(msg, pokermud.MakePlayer(c.Username, c.Connection))
+							reader.Reset(os.Stdin)
+							c.canChooseAction = false
 						}
-					default:
-						fmt.Println("Command not recognized")
+
 					}
-					os.Stdin.Close()
-					c.Connection.Write([]byte(response))
+				// Player ran out of time to choose an action
+				case 12:
+					{
+						c.logInfo.Println("Player ran out of time to choose action and server terminating player action")
+						c.canChooseAction = false
+					}
 				}
 			}
 		}
